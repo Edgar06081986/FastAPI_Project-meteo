@@ -1,0 +1,90 @@
+<!-- === templates/weather.html === -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Погода</title>
+    <!-- Подключаем стили (если нужны) -->
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2rem; }
+        .weather { margin-top: 1rem; padding: 1rem; border: 1px solid #ccc; border-radius: 0.5rem; }
+        input[type=text] { padding: 0.5rem; font-size: 1rem; }
+        button { padding: 0.5rem 1rem; }
+        ul.suggestions { list-style: none; padding: 0; }
+        ul.suggestions li { cursor: pointer; padding: 0.25rem 0; }
+    </style>
+</head>
+<body>
+    <h1>Прогноз погоды</h1>
+
+    <!-- Форма для ввода города -->
+    <form method="post" action="/weather">
+        <input type="text" name="city" id="city" placeholder="Введите город" required autocomplete="off">
+        <button type="submit">Показать погоду</button>
+        <ul class="suggestions" id="suggestions"></ul> <!-- Список подсказок -->
+    </form>
+
+    <!-- Если передан город — выводим его название -->
+    {% if city %}
+        <h2>Погода в городе {{ city }}</h2>
+    {% endif %}
+
+    <!-- Если есть ошибка — показываем сообщение -->
+    {% if weather.error %}
+        <p style="color: red">{{ weather.error }}</p>
+    {% endif %}
+
+    <!-- Если есть данные погоды — отображаем -->
+    {% if weather.current_weather %}
+        <div class="weather">
+            <p>Температура сейчас: {{ weather.current_weather.temperature }} °C</p>
+            <p>Скорость ветра: {{ weather.current_weather.windspeed }} км/ч</p>
+        </div>
+    {% endif %}
+
+    {% if weather.daily %}
+        <div class="weather">
+            <h3>Прогноз на 3 дня:</h3>
+            <ul>
+                {% for i in range(3) %}  <!-- Отображаем 3 дня прогноза -->
+                    <li>
+                        {{ weather.daily.time[i] }}: от {{ weather.daily.temperature_2m_min[i] }}°C до {{ weather.daily.temperature_2m_max[i] }}°C
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <!-- Если есть последний город в cookies -->
+    {% if last_city %}
+        <p>Вы ранее смотрели погоду в <strong>{{ last_city }}</strong>. <a href="/weather?city={{ last_city }}">Посмотреть снова</a></p>
+    {% endif %}
+
+    <!-- JS для автодополнения -->
+    <script>
+    const cityInput = document.getElementById("city");
+    const suggestions = document.getElementById("suggestions");
+
+    cityInput.addEventListener("input", async () => {
+        const query = cityInput.value;
+        if (query.length < 2) {
+            suggestions.innerHTML = "";
+            return;
+        }
+        const res = await fetch(`/autocomplete?q=${query}`);
+        const data = await res.json();
+        suggestions.innerHTML = "";
+        for (const item of data.suggestions) {
+            const li = document.createElement("li");
+            li.textContent = item;
+            li.onclick = () => {
+                cityInput.value = item;
+                suggestions.innerHTML = "";
+            };
+            suggestions.appendChild(li);
+        }
+    });
+    </script>
+</body>
+</html>
