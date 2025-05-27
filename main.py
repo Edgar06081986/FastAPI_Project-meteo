@@ -4,24 +4,37 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
 from models import SearchHistory
-from database import SessionLocal
+from database import SessionLocal, init_db
 import httpx, uuid, os
 
+
+
+
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
+
+
 templates = Jinja2Templates(directory="templates")
 
 # Подключаем статику (если будет CSS)
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Главная страница с формой для ввода города
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     last_city = request.cookies.get("last_city")
     return templates.TemplateResponse("weather.html", {
         "request": request,
-        "last_city": last_city
+        "last_city": last_city,
+        "weather": None  # Ensure 'weather' is always defined
     })
 
+
+#  Получаем погоду по городу
 @app.post("/weather", response_class=HTMLResponse)
 async def get_weather(request: Request, city: str = Form(...)):
     async with httpx.AsyncClient() as client:
@@ -63,6 +76,7 @@ async def get_weather(request: Request, city: str = Form(...)):
     response.set_cookie("user_id", user_id, max_age=60 * 60 * 24 * 365)
     return response
 
+# Автодополнение для ввода города
 @app.get("/autocomplete")
 async def autocomplete(q: str):
     async with httpx.AsyncClient() as client:
@@ -71,6 +85,7 @@ async def autocomplete(q: str):
         suggestions = [item["name"] for item in data.get("results", [])]
         return {"suggestions": suggestions}
 
+# Статистика по городам
 @app.get("/stats")
 async def stats():
     async with SessionLocal() as session:
